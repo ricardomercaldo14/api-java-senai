@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Professores</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 antialiased flex flex-col">
+
+    <!-- Header / Navbar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-indigo-600 text-white rounded-xl shadow-md shadow-indigo-100">
+                    <i data-lucide="graduation-cap" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">EduGestão</h1>
+                    <p class="text-xs text-slate-500">Módulo de Cadastro e Docentes</p>
+                </div>
+            </div>
+
+            <!-- API Status & Mock Toggle -->
+            <div class="flex items-center gap-4">
+                <div class="hidden md:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                    <span class="text-xs font-medium text-slate-600">Modo Mock:</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="mockToggle" class="sr-only peer" onchange="handleMockToggle()">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                </div>
+                <button onclick="abrirModalCadastro()" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow active:scale-95">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i>
+                    <span>Cadastrar Professor</span>
+                </button>
+                <button onclick="buscarProfessores()" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow active:scale-95">
+                    <i data-lucide="refresh-cw" id="refreshIcon" class="w-4 h-4"></i>
+                    <span>Atualizar</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6">
+
+        <!-- Banner de Notificação de Alerta/Sucesso/Erro Global -->
+        <div id="successToast" class="hidden p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 flex items-start gap-3 shadow-sm transition-all duration-300">
+            <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600 mt-0.5 shrink-0"></i>
+            <div class="flex-1 text-sm">
+                <p class="font-semibold text-emerald-900" id="successTitle">Sucesso!</p>
+                <p id="successMessage" class="text-emerald-700 mt-0.5">Operação realizada com sucesso.</p>
+            </div>
+            <button onclick="fecharToastSucesso()" class="text-emerald-500 hover:text-emerald-700">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <div id="errorAlert" class="hidden p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 flex items-start gap-3 shadow-sm transition-all duration-300">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 mt-0.5 shrink-0"></i>
+            <div class="flex-1 text-sm">
+                <p class="font-semibold text-amber-900" id="errorTitle">Falha ao conectar com a API</p>
+                <p id="errorMessage" class="text-amber-700 mt-0.5">Não foi possível carregar a lista de professores em http://localhost:8080/professor/listar.</p>
+                <div class="mt-2 flex gap-3">
+                    <button onclick="usarDadosMock()" class="text-xs font-semibold text-amber-900 underline hover:text-amber-950">Ativar dados de teste (Mock)</button>
+                    <button onclick="buscarProfessores()" class="text-xs font-semibold text-amber-900 underline hover:text-amber-950">Tentar Novamente</button>
+                </div>
+            </div>
+            <button onclick="fecharAlerta()" class="text-amber-500 hover:text-amber-700">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- Dashboard Header & Stats -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
+                <div class="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                    <i data-lucide="users" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Docentes</span>
+                    <p class="text-2xl font-bold text-slate-900" id="statTotal">0</p>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
+                <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Status da API</span>
+                    <p class="text-sm font-semibold text-emerald-600 flex items-center gap-1.5 mt-1" id="statStatus">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Conectado
+                    </p>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
+                <div class="p-3 bg-purple-50 text-purple-600 rounded-xl">
+                    <i data-lucide="server" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Endpoint Atual</span>
+                    <p class="text-xs font-mono text-slate-600 truncate max-w-[200px]" id="statEndpoint">localhost:8080/professor/listar</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls & Filters -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+            <!-- Search Bar -->
+            <div class="relative w-full md:w-96">
+                <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="text" id="searchInput" oninput="filtrarProfessores()" placeholder="Buscar por Nome, CPF ou Email..." 
+                    class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400">
+            </div>
+
+            <div class="flex items-center gap-3 w-full md:w-auto justify-end">
+                <span class="text-xs text-slate-500 font-medium" id="filteringCount">Mostrando todos os registros</span>
+            </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden flex-1 flex flex-col">
+            <div class="overflow-x-auto flex-1">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50/80 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                            <th class="py-3.5 px-6">ID</th>
+                            <th class="py-3.5 px-6">Professor</th>
+                            <th class="py-3.5 px-6">CPF</th>
+                            <th class="py-3.5 px-6">E-mail</th>
+                            <th class="py-3.5 px-6 text-right">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="professoresTableBody" class="divide-y divide-slate-100 text-sm">
+                        <!-- Conteúdo preenchido via JavaScript -->
+                    </tbody>
+                </table>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="py-16 text-center flex flex-col items-center justify-center">
+                    <div class="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                    <p class="text-slate-500 text-sm mt-4 font-medium">Buscando lista de professores...</p>
+                </div>
+
+                <!-- Empty State -->
+                <div id="emptyState" class="hidden py-16 text-center flex flex-col items-center justify-center">
+                    <div class="p-4 bg-slate-100 rounded-full text-slate-400 mb-3">
+                        <i data-lucide="user-x" class="w-8 h-8"></i>
+                    </div>
+                    <p class="text-slate-800 font-semibold text-base">Nenhum professor encontrado</p>
+                    <p class="text-slate-400 text-sm mt-1 max-w-sm">Não encontramos nenhum resultado para os critérios fornecidos ou a tabela está vazia.</p>
+                </div>
+            </div>
+
+            <!-- Footer / Stats Info -->
+            <div class="p-4 bg-slate-50/50 border-t border-slate-100 text-xs text-slate-500 flex justify-between items-center">
+                <span>Registros atualizados em tempo real</span>
+                <span id="lastUpdated" class="font-medium">--:--:--</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal de Cadastro de Professor -->
+    <div id="modalCadastro" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-lg overflow-hidden transform transition-all duration-300 scale-95 opacity-0" id="modalCard">
+            
+            <!-- Modal Header -->
+            <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
+                        <i data-lucide="user-plus" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-bold text-slate-900">Novo Professor</h2>
+                        <p class="text-xs text-slate-500">Preencha os dados para efetuar o cadastro</p>
+                    </div>
+                </div>
+                <button onclick="fecharModalCadastro()" class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Form -->
+            <form id="formCadastro" onsubmit="cadastrarProfessor(event)" class="p-6 flex flex-col gap-5">
+                
+                <!-- Feedback interno do Form -->
+                <div id="formAlert" class="hidden p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 flex items-start gap-2.5 text-xs">
+                    <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600 mt-0.5 shrink-0"></i>
+                    <span id="formAlertText" class="flex-1"></span>
+                </div>
+
+                <!-- Campo Nome -->
+                <div>
+                    <label for="nome" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Nome Completo <span class="text-rose-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <i data-lucide="user" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="nome" name="nome" required placeholder="Ex: Victor Alencar" 
+                            class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400">
+                    </div>
+                </div>
+
+                <!-- Campo CPF -->
+                <div>
+                    <label for="cpf" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                        CPF <span class="text-rose-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <i data-lucide="id-card" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="cpf" name="cpf" maxlength="14" required placeholder="000.000.000-00" oninput="aplicarMascaraCPF(this)"
+                            class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400">
+                    </div>
+                </div>
+
+                <!-- Campo E-mail -->
+                <div>
+                    <label for="email" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                        E-mail <span class="text-rose-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <i data-lucide="mail" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="email" id="email" name="email" required placeholder="exemplo@dominio.com" 
+                            class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400">
+                    </div>
+                </div>
+
+                <!-- Informação de Envio de Rota -->
+                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-500 flex justify-between items-center">
+                    <span>Rota de envio:</span>
+                    <span class="font-mono font-semibold text-slate-700">POST /professor/cadastrar</span>
+                </div>
+
+                <!-- Modal Actions -->
+                <div class="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="fecharModalCadastro()" 
+                        class="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all">
+                        Cancelar
+                    </button>
+                    <button type="submit" id="btnSubmitForm" 
+                        class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white px-5 py-2.5 rounded-xl text-xs font-semibold transition-all shadow-sm hover:shadow active:scale-95 disabled:opacity-50 disabled:pointer-events-none">
+                        <i data-lucide="send" id="submitIcon" class="w-4 h-4"></i>
+                        <span id="submitText">Salvar Cadastro</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Configurações
+        const API_URL_LISTAR = "http://localhost:8080/professor/listar";
+        const API_URL_CADASTRAR = "http://localhost:8080/professor/cadastrar";
+        let professoresData = [];
+        let isMocking = false;
+
+        // Dados de Mock para teste offline / local
+        const MOCK_DATA = [
+            { idProfessor: 1, nome: "Victor Alencar", email: "victor@gmail.com", cpf: "78945612631" },
+            { idProfessor: 2, nome: "Ana Beatris Silva", email: "ana.silva@escola.edu.br", cpf: "12345678901" },
+            { idProfessor: 3, nome: "Carlos Eduardo Costa", email: "carlos.costa@universidade.com", cpf: "98765432100" },
+            { idProfessor: 4, nome: "Mariana Souza", email: "mariana.souza@gmail.com", cpf: "45678912344" }
+        ];
+
+        // Inicializar ícones do Lucide
+        lucide.createIcons();
+
+        // Formatar CPF para exibição
+        function formatarCPF(cpf) {
+            if (!cpf) return "N/A";
+            const limpo = cpf.toString().replace(/\D/g, '');
+            if (limpo.length !== 11) return cpf;
+            return limpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+        }
+
+        // Máscara dinâmica no input de CPF
+        function aplicarMascaraCPF(input) {
+            let value = input.value.replace(/\D/g, "");
+            if (value.length > 11) value = value.slice(0, 11);
+
+            value = value.replace(/(\d{3})(\d)/, "$1.$2");
+            value = value.replace(/(\d{3})(\d)/, "$1.$2");
+            value = value.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+
+            input.value = value;
+        }
+
+        // Função Principal de Busca
+        async function buscarProfessores() {
+            mostrarLoading(true);
+            fecharAlerta();
+            
+            const refreshIcon = document.getElementById('refreshIcon');
+            if (refreshIcon) refreshIcon.classList.add('animate-spin');
+
+            try {
+                if (isMocking) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    professoresData = [...MOCK_DATA];
+                    atualizarStatusAPI(true, "Mock Data (Offline)");
+                } else {
+                    const response = await fetch(API_URL_LISTAR, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Erro na requisição: status ${response.status}`);
+                    }
+
+                    professoresData = await response.json();
+                    atualizarStatusAPI(true, "Conectado");
+                }
+
+                renderizarTabela(professoresData);
+                document.getElementById('lastUpdated').textContent = `Última atualização: ${new Date().toLocaleTimeString()}`;
+
+            } catch (error) {
+                console.error("Erro ao carregar os dados:", error);
+                exibirErro("Falha ao conectar com a API", `Não foi possível obter dados de ${API_URL_LISTAR}. Verifique se o backend está rodando e aceita requisições.`);
+                atualizarStatusAPI(false, "Desconectado");
+                professoresData = [];
+                renderizarTabela([]);
+            } finally {
+                mostrarLoading(false);
+                if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+            }
+        }
+
+        // Cadastrar Novo Professor via POST
+        async function cadastrarProfessor(event) {
+            event.preventDefault();
+            ocultarErroForm();
+
+            const nome = document.getElementById('nome').value.trim();
+            const cpfComMascara = document.getElementById('cpf').value;
+            const cpfApenasNumeros = cpfComMascara.replace(/\D/g, '');
+            const email = document.getElementById('email').value.trim();
+
+            if (cpfApenasNumeros.length !== 11) {
+                exibirErroForm("O CPF deve conter exatamente 11 dígitos numéricos.");
+                return;
+            }
+
+            // Payload exigido pelo backend
+            const payload = {
+                nome: nome,
+                cpf: cpfApenasNumeros,
+                email: email
+            };
+
+            setSubmittingState(true);
+
+            try {
+                if (isMocking) {
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                    const novoId = MOCK_DATA.length ? Math.max(...MOCK_DATA.map(p => p.idProfessor || 0)) + 1 : 1;
+                    MOCK_DATA.push({ idProfessor: novoId, ...payload });
+                    
+                    exibirToastSucesso("Professor cadastrado com sucesso! (Simulado em Modo Mock)");
+                    fecharModalCadastro();
+                    buscarProfessores();
+                } else {
+                    const response = await fetch(API_URL_CADASTRAR, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Erro no cadastro: status ${response.status}`);
+                    }
+
+                    exibirToastSucesso("Professor cadastrado com sucesso!");
+                    fecharModalCadastro();
+                    buscarProfessores();
+                }
+            } catch (error) {
+                console.error("Erro ao cadastrar professor:", error);
+                exibirErroForm(`Não foi possível enviar o cadastro para ${API_URL_CADASTRAR}. Verifique a API ou ative o Modo Mock para testar.`);
+            } finally {
+                setSubmittingState(false);
+            }
+        }
+
+        // Controle dos modais e estados visuais
+        function abrirModalCadastro() {
+            document.getElementById('formCadastro').reset();
+            ocultarErroForm();
+            const modal = document.getElementById('modalCadastro');
+            const card = document.getElementById('modalCard');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                card.classList.remove('scale-95', 'opacity-0');
+                card.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function fecharModalCadastro() {
+            const modal = document.getElementById('modalCadastro');
+            const card = document.getElementById('modalCard');
+            card.classList.remove('scale-100', 'opacity-100');
+            card.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function setSubmittingState(isSubmitting) {
+            const btn = document.getElementById('btnSubmitForm');
+            const icon = document.getElementById('submitIcon');
+            const text = document.getElementById('submitText');
+
+            btn.disabled = isSubmitting;
+            if (isSubmitting) {
+                icon.setAttribute('data-lucide', 'loader-2');
+                icon.classList.add('animate-spin');
+                text.textContent = "Cadastrando...";
+            } else {
+                icon.setAttribute('data-lucide', 'send');
+                icon.classList.remove('animate-spin');
+                text.textContent = "Salvar Cadastro";
+            }
+            lucide.createIcons();
+        }
+
+        function exibirErroForm(mensagem) {
+            const alert = document.getElementById('formAlert');
+            document.getElementById('formAlertText').textContent = mensagem;
+            alert.classList.remove('hidden');
+        }
+
+        function ocultarErroForm() {
+            document.getElementById('formAlert').classList.add('hidden');
+        }
+
+        function exibirToastSucesso(mensagem) {
+            const toast = document.getElementById('successToast');
+            document.getElementById('successMessage').textContent = mensagem;
+            toast.classList.remove('hidden');
+            setTimeout(() => fecharToastSucesso(), 4000);
+        }
+
+        function fecharToastSucesso() {
+            document.getElementById('successToast').classList.add('hidden');
+        }
+
+        // Renderizar linhas da Tabela
+        function renderizarTabela(dados) {
+            const tbody = document.getElementById('professoresTableBody');
+            const emptyState = document.getElementById('emptyState');
+            tbody.innerHTML = '';
+
+            // Atualizar contadores
+            document.getElementById('statTotal').textContent = professoresData.length;
+            document.getElementById('filteringCount').textContent = `Mostrando ${dados.length} de ${professoresData.length} registros`;
+
+            if (!dados || dados.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            dados.forEach(prof => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/80 transition-colors group";
+                
+                tr.innerHTML = `
+                    <td class="py-4 px-6 text-slate-400 font-mono text-xs">#${prof.idProfessor || 'N/A'}</td>
+                    <td class="py-4 px-6">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm shrink-0">
+                                ${prof.nome ? prof.nome.charAt(0).toUpperCase() : '?'}
+                            </div>
+                            <div>
+                                <span class="font-semibold text-slate-800 block leading-snug">${prof.nome || 'Sem Nome'}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-4 px-6 font-mono text-slate-600 text-xs">
+                        ${formatarCPF(prof.cpf)}
+                    </td>
+                    <td class="py-4 px-6 text-slate-600">
+                        <a href="mailto:${prof.email}" class="hover:text-indigo-600 transition-colors flex items-center gap-1.5 w-fit">
+                            <i data-lucide="mail" class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500"></i>
+                            ${prof.email || 'Não informado'}
+                        </a>
+                    </td>
+                    <td class="py-4 px-6 text-right">
+                        <button onclick="copiarEmail('${prof.email}')" title="Copiar e-mail" class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Re-inicializar ícones nos novos elementos criados dinamicamente
+            lucide.createIcons();
+        }
+
+        // Filtro em tempo real
+        function filtrarProfessores() {
+            const termo = document.getElementById('searchInput').value.toLowerCase().trim();
+            
+            const dadosFiltrados = professoresData.filter(prof => {
+                const nome = (prof.nome || '').toLowerCase();
+                const email = (prof.email || '').toLowerCase();
+                const cpf = (prof.cpf || '').toString();
+
+                return nome.includes(termo) || email.includes(termo) || cpf.includes(termo);
+            });
+
+            renderizarTabela(dadosFiltrados);
+        }
+
+        // Manipulação do Toggle Mock
+        function handleMockToggle() {
+            const toggle = document.getElementById('mockToggle');
+            isMocking = toggle.checked;
+            buscarProfessores();
+        }
+
+        function usarDadosMock() {
+            const toggle = document.getElementById('mockToggle');
+            toggle.checked = true;
+            isMocking = true;
+            buscarProfessores();
+        }
+
+        // Atualizar status da API no visual
+        function atualizarStatusAPI(sucesso, texto) {
+            const statStatus = document.getElementById('statStatus');
+            if (sucesso) {
+                statStatus.className = "text-sm font-semibold text-emerald-600 flex items-center gap-1.5 mt-1";
+                statStatus.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> ${texto}`;
+            } else {
+                statStatus.className = "text-sm font-semibold text-rose-600 flex items-center gap-1.5 mt-1";
+                statStatus.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span> ${texto}`;
+            }
+        }
+
+        // Exibir/Ocultar Loading
+        function mostrarLoading(mostrar) {
+            const loadingState = document.getElementById('loadingState');
+            const tbody = document.getElementById('professoresTableBody');
+            
+            if (mostrar) {
+                loadingState.classList.remove('hidden');
+                tbody.innerHTML = '';
+            } else {
+                loadingState.classList.add('hidden');
+            }
+        }
+
+        // Tratar Mensagens de Erro
+        function exibirErro(titulo, mensagem) {
+            const alert = document.getElementById('errorAlert');
+            document.getElementById('errorTitle').textContent = titulo;
+            document.getElementById('errorMessage').textContent = mensagem;
+            alert.classList.remove('hidden');
+        }
+
+        function fecharAlerta() {
+            document.getElementById('errorAlert').classList.add('hidden');
+        }
+
+        // Utilitário para copiar texto
+        function copiarEmail(email) {
+            if (!email) return;
+            const tempInput = document.createElement("input");
+            tempInput.value = email;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+
+            // Pequeno feedback simples
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-4 right-4 bg-slate-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-lg z-50 transition-all';
+            toast.textContent = `E-mail "${email}" copiado!`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2500);
+        }
+
+        // Executar busca inicial ao carregar a página
+        window.onload = function() {
+            buscarProfessores();
+        };
+    </script>
+</body>
+</html>
